@@ -133,7 +133,7 @@
           <div class="settings-grid">
             <article class="panel"><h3>数据库备份</h3><p>导出包含所有流水、人工分类、重复关系和导入批次的 JSON 备份。</p><button class="btn primary" id="backupBtn2">导出完整备份</button></article>
             <article class="panel"><h3>恢复备份</h3><p>恢复 Bills Organization 自己导出的 JSON 数据库备份。</p><button class="btn ghost" id="restoreBtn">选择备份文件</button></article>
-            <article class="panel danger-panel"><h3>重置本地数据</h3><p>可清空浏览器 IndexedDB；也可以随时重新加载本项目内置的首次 580 条历史流水。</p><button class="btn danger" id="resetBtn">清空数据库</button> <button class="btn ghost" id="reloadSeedBtn">重新加载历史账单</button></article>
+            <article class="panel danger-panel"><h3>迁移旧报告 / 重置数据</h3><p>为了保护隐私，真实账单不会写入公开仓库。你可以把旧版分析 HTML 直接导入并迁移到本机数据库；也可以清空 IndexedDB 后重新开始。</p><button class="btn primary" id="migrateBtn">导入旧版 HTML</button> <button class="btn danger" id="resetBtn">清空数据库</button></article>
           </div>
         </section>
       </div>
@@ -159,8 +159,9 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
-  <script src="./data/seed-meta.js"></script>
-  <script src="./data/seed.js"></script>
+  <script src="./core.js"></script>
+  <script src="./importers.js"></script>
+  <script src="./exports.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
