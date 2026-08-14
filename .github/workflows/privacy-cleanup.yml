@@ -1,0 +1,33 @@
+name: Privacy cleanup
+
+on:
+  push:
+    paths:
+      - .github/workflows/privacy-cleanup.yml
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove obsolete sensitive workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for id in 31812442662 31812538989 31812651004 31812746510; do
+            code=$(curl -sS -o /tmp/resp -w "%{http_code}" -L -X DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${id}")
+            if [ "$code" != "204" ] && [ "$code" != "404" ]; then
+              cat /tmp/resp
+              echo "Failed to delete run $id: HTTP $code"
+              exit 1
+            fi
+          done
