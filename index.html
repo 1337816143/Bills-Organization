@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="本地优先的多平台账单整理、去重、旅游支出分类与多格式导入导出工具" />
+  <meta name="theme-color" content="#101a33" />
+  <title>Bills Organization · 账单整理</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">BO</div>
+      <div><strong>Bills Organization</strong><span>账单整理与旅行支出分析</span></div>
+    </div>
+    <div class="top-actions">
+      <span class="privacy-dot">● 本地处理</span>
+      <button class="btn ghost" id="backupBtn">备份数据库</button>
+      <button class="btn primary" id="importBtn">导入账单</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">LOCAL-FIRST FINANCE WORKSPACE</span>
+        <h1>把微信、支付宝和银行卡流水<br>整理成一套可持续维护的账单库。</h1>
+        <p>自动识别账单结构、增量导入、跨平台去重，保留每条原始字段；旅游支出由你逐笔确认，统计实时更新。</p>
+      </div>
+      <div class="hero-side">
+        <label>旅游开始日期<input type="date" id="travelStart" value="2026-08-08" /></label>
+        <small>纯旅游支出包含出发前准备；旅游期间总支出从此日期起计算。</small>
+      </div>
+    </section>
+
+    <section class="metrics" id="metrics">
+      <article><span>去重后总支出</span><strong id="mExpense">¥0.00</strong><small id="mExpenseCount">0 笔</small></article>
+      <article><span>去重后总收入</span><strong id="mIncome">¥0.00</strong><small id="mIncomeCount">0 笔</small></article>
+      <article><span>净支出</span><strong id="mNet">¥0.00</strong><small>支出 − 收入</small></article>
+      <article class="travel"><span>纯旅游支出</span><strong id="mTravel">¥0.00</strong><small>含出发前准备</small></article>
+      <article class="travel"><span>旅游期间总支出</span><strong id="mPeriod">¥0.00</strong><small>旅游 + 期间非旅游</small></article>
+      <article><span>待人工确认</span><strong id="mUnknown">0</strong><small>有效流水</small></article>
+    </section>
+
+    <section class="workspace">
+      <aside class="sidebar">
+        <nav>
+          <button class="nav active" data-view="ledger">流水明细 <span id="navCount">0</span></button>
+          <button class="nav" data-view="imports">导入记录 <span id="batchCount">0</span></button>
+          <button class="nav" data-view="export">导出中心</button>
+          <button class="nav" data-view="settings">数据与设置</button>
+        </nav>
+        <div class="side-card">
+          <b>数据只存本机</b>
+          <p>本网站不设置服务器。账单解析、分类、去重和导出均在浏览器中执行。</p>
+        </div>
+      </aside>
+
+      <div class="content">
+        <section class="view active" id="view-ledger">
+          <div class="section-head">
+            <div><h2>流水明细</h2><p>默认按时间从新到旧；确认重复的银行卡镜像仍保留，但不计入去重统计。</p></div>
+            <div class="segmented"><button class="active" data-mode="dedup">去重版</button><button data-mode="raw">原始版</button></div>
+          </div>
+
+          <div class="filters">
+            <input id="q" placeholder="搜索商户、商品、订单号、原始字段…" />
+            <select id="sourceFilter"><option value="">全部来源</option><option>微信</option><option>支付宝</option><option>建设银行</option><option>农业银行</option></select>
+            <select id="directionFilter"><option value="">全部收支</option><option>支出</option><option>收入</option><option>不计收支</option></select>
+            <select id="manualFilter"><option value="">全部人工分类</option><option value="unknown">未判断</option><option value="travel">旅游支出</option><option value="period_nontravel">旅游期间非旅游</option><option value="other">其他 / 非旅游</option></select>
+            <input type="date" id="dateFrom" title="开始日期" />
+            <input type="date" id="dateTo" title="结束日期" />
+            <button class="btn ghost" id="clearFilters">清空筛选</button>
+          </div>
+
+          <div class="table-meta"><span id="filteredCount">0 条</span><span>点击“完整信息”查看导入时保留的全部原始字段</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>时间</th><th>来源</th><th>收支</th><th class="num">金额</th><th>交易对方 / 商品说明</th><th>人工分类</th><th>重复状态</th><th>信息</th></tr></thead>
+              <tbody id="ledgerBody"></tbody>
+            </table>
+          </div>
+          <div class="pager"><button class="btn ghost" id="prevPage">上一页</button><span id="pageInfo">1 / 1</span><button class="btn ghost" id="nextPage">下一页</button></div>
+        </section>
+
+        <section class="view" id="view-imports">
+          <div class="section-head"><div><h2>导入记录</h2><p>每次导入都会形成批次；相同账单再次导入会跳过已有交易，只增量加入新明细。</p></div><button class="btn primary" id="importBtn2">导入新账单</button></div>
+          <div class="support-grid">
+            <article><b>支持格式</b><p>CSV / TXT、XLS / XLSX、PDF、JSON、HTML</p></article>
+            <article><b>已适配账单</b><p>微信支付、支付宝、中国建设银行、中国农业银行；其他表格会尝试通用字段识别。</p></article>
+            <article><b>自动处理</b><p>识别表头与汇总信息、标准化字段、原单内去重、跨平台镜像匹配。</p></article>
+          </div>
+          <div id="batchList" class="batch-list"></div>
+        </section>
+
+        <section class="view" id="view-export">
+          <div class="section-head"><div><h2>导出中心</h2><p>先定义“导出什么”，再选择文件格式。汇总版会附带统计口径和净收入 / 净支出。</p></div></div>
+          <div class="export-grid">
+            <div class="panel">
+              <h3>1. 数据范围</h3>
+              <label class="radio"><input type="radio" name="exportScope" value="expense" checked />仅支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="income" />仅收入</label>
+              <label class="radio"><input type="radio" name="exportScope" value="all" />支出 + 收入（含净额汇总）</label>
+              <label class="radio"><input type="radio" name="exportScope" value="travel" />手动指定项：旅游支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="period" />手动指定项：旅游期间总支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="manual" />手动指定分类</label>
+              <select id="exportManual" disabled><option value="travel">旅游支出</option><option value="period_nontravel">旅游期间非旅游</option><option value="other">其他 / 非旅游</option><option value="unknown">未判断</option></select>
+              <div class="inline"><label>从 <input type="date" id="exportFrom" /></label><label>至 <input type="date" id="exportTo" /></label></div>
+            </div>
+            <div class="panel">
+              <h3>2. 统计口径</h3>
+              <label class="check"><input type="checkbox" id="exportDedup" checked />使用去重版（推荐）</label>
+              <label class="check"><input type="checkbox" id="exportRawFields" checked />包含全部原始字段</label>
+              <label class="check"><input type="checkbox" id="exportSummary" checked />附带汇总信息</label>
+              <p class="hint">如果关闭“去重版”，微信/支付宝绑卡支付可能与银行卡流水重复出现。</p>
+            </div>
+            <div class="panel">
+              <h3>3. 文件格式</h3>
+              <div class="format-grid">
+                <button class="format" data-format="xlsx"><b>XLSX</b><span>汇总 + 明细工作表</span></button>
+                <button class="format" data-format="csv"><b>CSV</b><span>通用明细表</span></button>
+                <button class="format" data-format="json"><b>JSON</b><span>完整结构 / 可重新导入</span></button>
+                <button class="format" data-format="html"><b>HTML</b><span>可独立查看的静态报告</span></button>
+              </div>
+            </div>
+          </div>
+          <div id="exportPreview" class="export-preview"></div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <div class="section-head"><div><h2>数据与设置</h2><p>可备份整个本地账单库，也可以清空后重新导入。</p></div></div>
+          <div class="settings-grid">
+            <article class="panel"><h3>数据库备份</h3><p>导出包含所有流水、人工分类、重复关系和导入批次的 JSON 备份。</p><button class="btn primary" id="backupBtn2">导出完整备份</button></article>
+            <article class="panel"><h3>恢复备份</h3><p>恢复 Bills Organization 自己导出的 JSON 数据库备份。</p><button class="btn ghost" id="restoreBtn">选择备份文件</button></article>
+            <article class="panel danger-panel"><h3>重置本地数据</h3><p>可清空浏览器 IndexedDB；也可以随时重新加载本项目内置的首次 580 条历史流水。</p><button class="btn danger" id="resetBtn">清空数据库</button> <button class="btn ghost" id="reloadSeedBtn">重新加载历史账单</button></article>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <input id="fileInput" type="file" hidden multiple accept=".csv,.txt,.xls,.xlsx,.pdf,.json,.html" />
+  <input id="restoreInput" type="file" hidden accept=".json" />
+
+  <dialog id="detailDialog">
+    <div class="dialog-head"><div><b id="detailTitle">交易详情</b><span id="detailSub"></span></div><button class="icon-btn" id="closeDetail">×</button></div>
+    <div id="detailContent" class="detail-content"></div>
+  </dialog>
+
+  <dialog id="importDialog">
+    <div class="dialog-head"><div><b>导入账单</b><span>文件只在当前浏览器中解析</span></div><button class="icon-btn" id="closeImport">×</button></div>
+    <div class="dropzone" id="dropzone"><b>拖入账单文件</b><span>或点击选择 CSV / XLS / XLSX / PDF / JSON / HTML</span><button class="btn primary" id="chooseFiles">选择文件</button></div>
+    <div id="importProgress" class="import-progress"></div>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
+  <script src="./data/seed-meta.js"></script>
+  <script src="./data/seed.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
