@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="本地优先的多平台账单整理、去重、旅游支出分类与多格式导入导出工具" />
+  <meta name="description" content="本地优先的多平台账单整理、去重、旅游支出分类、时间段统计与多格式导入导出工具" />
   <meta name="theme-color" content="#101a33" />
   <title>Bills Organization · 账单整理</title>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./enhancements.css" />
 </head>
 <body>
   <header class="topbar">
@@ -26,11 +27,12 @@
       <div>
         <span class="eyebrow">LOCAL-FIRST FINANCE WORKSPACE</span>
         <h1>把微信、支付宝和银行卡流水<br>整理成一套可持续维护的账单库。</h1>
-        <p>自动识别账单结构、增量导入、跨平台去重，保留每条原始字段；旅游支出由你逐笔确认，统计实时更新。</p>
+        <p>自动识别账单结构、增量导入、跨平台重复成组展示，并保留每条最完整原始字段与源文件最高时间精度。旅游分类采用“自动识别 + 手动修正”双层结果。</p>
       </div>
       <div class="hero-side">
         <label>旅游开始日期<input type="date" id="travelStart" value="2026-08-08" /></label>
-        <small>纯旅游支出包含出发前准备；旅游期间总支出从此日期起计算。</small>
+        <label>旅游结束日期<input type="date" id="travelEnd" value="2026-08-14" /></label>
+        <small>开始/结束日期共同决定“旅游期间”。源文件没有时分秒时不会人为补造成更高精度。</small>
       </div>
     </section>
 
@@ -38,15 +40,32 @@
       <article><span>去重后总支出</span><strong id="mExpense">¥0.00</strong><small id="mExpenseCount">0 笔</small></article>
       <article><span>去重后总收入</span><strong id="mIncome">¥0.00</strong><small id="mIncomeCount">0 笔</small></article>
       <article><span>净支出</span><strong id="mNet">¥0.00</strong><small>支出 − 收入</small></article>
-      <article class="travel"><span>纯旅游支出</span><strong id="mTravel">¥0.00</strong><small>含出发前准备</small></article>
-      <article class="travel"><span>旅游期间总支出</span><strong id="mPeriod">¥0.00</strong><small>旅游 + 期间非旅游</small></article>
-      <article><span>待人工确认</span><strong id="mUnknown">0</strong><small>有效流水</small></article>
+      <article class="travel"><span>修正后纯旅游支出</span><strong id="mTravel">¥0.00</strong><small>准备 + 期间旅游</small></article>
+      <article class="travel"><span>修正后旅游期间总支出</span><strong id="mPeriod">¥0.00</strong><small>期间旅游 + 期间非旅游</small></article>
+      <article class="travel"><span>修正后旅游总支出</span><strong id="mTravelTotal">¥0.00</strong><small>准备 + 期间全部支出</small></article>
+      <article><span>低置信度待复核</span><strong id="mUnknown">0</strong><small>尚未手动修正</small></article>
+    </section>
+
+    <section class="auto-panel">
+      <div class="auto-panel-head">
+        <div><h2>自动旅游识别</h2><p>系统根据旅行时间、商户/摘要、交易场景、旧版识别线索等进行规则判断。</p></div>
+        <span class="warning-badge">⚠ 自动识别可能不准确</span>
+      </div>
+      <div class="auto-metrics">
+        <article><span>自动·旅游前准备</span><strong id="aPrep">¥0.00</strong></article>
+        <article><span>自动·旅游期间旅游</span><strong id="aDuringTravel">¥0.00</strong></article>
+        <article><span>自动·旅游期间非旅游</span><strong id="aDuringNonTravel">¥0.00</strong></article>
+        <article><span>自动·纯旅游支出</span><strong id="aPureTravel">¥0.00</strong></article>
+        <article><span>自动·旅游总支出</span><strong id="aTravelTotal">¥0.00</strong></article>
+      </div>
+      <p class="auto-note">自动结果只作为初筛，尤其是普通网购、礼物、退款、银行摘要不完整等场景可能判断错误。流水表中会同时显示“自动识别结果”和“手动修正后的最终结果”，最终统计以手动修正结果为准。</p>
     </section>
 
     <section class="workspace">
       <aside class="sidebar">
         <nav>
           <button class="nav active" data-view="ledger">流水明细 <span id="navCount">0</span></button>
+          <button class="nav" data-view="stats">时间段统计</button>
           <button class="nav" data-view="imports">导入记录 <span id="batchCount">0</span></button>
           <button class="nav" data-view="export">导出中心</button>
           <button class="nav" data-view="settings">数据与设置</button>
@@ -60,28 +79,66 @@
       <div class="content">
         <section class="view active" id="view-ledger">
           <div class="section-head">
-            <div><h2>流水明细</h2><p>默认按时间从新到旧；确认重复的银行卡镜像仍保留，但不计入去重统计。</p></div>
-            <div class="segmented"><button class="active" data-mode="dedup">去重版</button><button data-mode="raw">原始版</button></div>
+            <div>
+              <h2>流水明细</h2>
+              <p>按时间从早到晚排列；确认重复和疑似重复会强制成组相邻显示。每条记录都可独立选择是否计入统计。</p>
+            </div>
+            <div class="segmented"><button class="active" data-mode="grouped">全部成组</button><button data-mode="included">仅看计入统计</button></div>
           </div>
 
           <div class="filters">
             <input id="q" placeholder="搜索商户、商品、订单号、原始字段…" />
             <select id="sourceFilter"><option value="">全部来源</option><option>微信</option><option>支付宝</option><option>建设银行</option><option>农业银行</option></select>
             <select id="directionFilter"><option value="">全部收支</option><option>支出</option><option>收入</option><option>不计收支</option></select>
-            <select id="manualFilter"><option value="">全部人工分类</option><option value="unknown">未判断</option><option value="travel">旅游支出</option><option value="period_nontravel">旅游期间非旅游</option><option value="other">其他 / 非旅游</option></select>
+            <select id="manualFilter">
+              <option value="">全部最终分类</option>
+              <option value="prep">旅游前准备支出</option>
+              <option value="during_travel">旅游期间旅游支出</option>
+              <option value="during_nontravel">旅游期间非旅游支出</option>
+              <option value="other">非旅游 / 其他</option>
+            </select>
             <input type="date" id="dateFrom" title="开始日期" />
             <input type="date" id="dateTo" title="结束日期" />
             <button class="btn ghost" id="clearFilters">清空筛选</button>
           </div>
 
-          <div class="table-meta"><span id="filteredCount">0 条</span><span>点击“完整信息”查看导入时保留的全部原始字段</span></div>
+          <div class="table-meta"><span id="filteredCount">0 条</span><span>“完整信息”保留标准化字段 + 全部原始字段；自动识别仅供参考</span></div>
           <div class="table-wrap">
-            <table>
-              <thead><tr><th>时间</th><th>来源</th><th>收支</th><th class="num">金额</th><th>交易对方 / 商品说明</th><th>人工分类</th><th>重复状态</th><th>信息</th></tr></thead>
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th>时间 / 精度</th><th>来源</th><th>收支</th><th class="num">金额</th><th>交易对方 / 商品说明</th>
+                  <th>自动识别</th><th>手动修正后的结果</th><th>统计口径</th><th>重复状态</th><th>信息</th>
+                </tr>
+              </thead>
               <tbody id="ledgerBody"></tbody>
             </table>
           </div>
           <div class="pager"><button class="btn ghost" id="prevPage">上一页</button><span id="pageInfo">1 / 1</span><button class="btn ghost" id="nextPage">下一页</button></div>
+        </section>
+
+        <section class="view" id="view-stats">
+          <div class="section-head">
+            <div><h2>时间段收支统计</h2><p>支持精确到浏览器可输入的分钟范围；源流水若只有日期或分钟精度，系统不会伪造秒级时间。</p></div>
+          </div>
+          <div class="period-controls panel">
+            <label>开始时间<input type="datetime-local" id="statFrom" step="60" /></label>
+            <label>结束时间<input type="datetime-local" id="statTo" step="60" /></label>
+            <button class="btn ghost stat-quick" data-range="7d">近 7 天</button>
+            <button class="btn ghost stat-quick" data-range="month">本月</button>
+            <button class="btn ghost stat-quick" data-range="all">全部时间</button>
+          </div>
+          <p id="statRangeNote" class="stat-note"></p>
+          <div id="statCards" class="stat-cards"></div>
+          <div class="panel">
+            <h3>按来源拆分</h3>
+            <div class="table-wrap compact">
+              <table>
+                <thead><tr><th>来源</th><th>计入记录数</th><th class="num">支出净额</th><th class="num">收入</th><th class="num">净支出</th></tr></thead>
+                <tbody id="statSourceBody"></tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         <section class="view" id="view-imports">
@@ -89,31 +146,40 @@
           <div class="support-grid">
             <article><b>支持格式</b><p>CSV / TXT、XLS / XLSX、PDF、JSON、HTML</p></article>
             <article><b>已适配账单</b><p>微信支付、支付宝、中国建设银行、中国农业银行；其他表格会尝试通用字段识别。</p></article>
-            <article><b>自动处理</b><p>识别表头与汇总信息、标准化字段、原单内去重、跨平台镜像匹配。</p></article>
+            <article><b>自动处理</b><p>识别表头与汇总信息、保留原始字段与最高时间精度、标准化字段、增量去重、跨平台重复匹配。</p></article>
           </div>
           <div id="batchList" class="batch-list"></div>
         </section>
 
         <section class="view" id="view-export">
-          <div class="section-head"><div><h2>导出中心</h2><p>先定义“导出什么”，再选择文件格式。汇总版会附带统计口径和净收入 / 净支出。</p></div></div>
+          <div class="section-head"><div><h2>导出中心</h2><p>先定义“导出什么”，再选择文件格式。导出明细会同时保留自动识别结果、手动修正结果和是否计入统计。</p></div></div>
           <div class="export-grid">
             <div class="panel">
               <h3>1. 数据范围</h3>
               <label class="radio"><input type="radio" name="exportScope" value="expense" checked />仅支出</label>
               <label class="radio"><input type="radio" name="exportScope" value="income" />仅收入</label>
               <label class="radio"><input type="radio" name="exportScope" value="all" />支出 + 收入（含净额汇总）</label>
-              <label class="radio"><input type="radio" name="exportScope" value="travel" />手动指定项：旅游支出</label>
-              <label class="radio"><input type="radio" name="exportScope" value="period" />手动指定项：旅游期间总支出</label>
-              <label class="radio"><input type="radio" name="exportScope" value="manual" />手动指定分类</label>
-              <select id="exportManual" disabled><option value="travel">旅游支出</option><option value="period_nontravel">旅游期间非旅游</option><option value="other">其他 / 非旅游</option><option value="unknown">未判断</option></select>
+              <label class="radio"><input type="radio" name="exportScope" value="prep" />旅游前准备支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="during_travel" />旅游期间旅游支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="during_nontravel" />旅游期间非旅游支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="travel" />纯旅游支出（准备 + 期间旅游）</label>
+              <label class="radio"><input type="radio" name="exportScope" value="period" />旅游期间总支出</label>
+              <label class="radio"><input type="radio" name="exportScope" value="travel_total" />旅游总支出（准备 + 期间全部）</label>
+              <label class="radio"><input type="radio" name="exportScope" value="manual" />指定最终分类</label>
+              <select id="exportManual" disabled>
+                <option value="prep">旅游前准备支出</option>
+                <option value="during_travel">旅游期间旅游支出</option>
+                <option value="during_nontravel">旅游期间非旅游支出</option>
+                <option value="other">非旅游 / 其他</option>
+              </select>
               <div class="inline"><label>从 <input type="date" id="exportFrom" /></label><label>至 <input type="date" id="exportTo" /></label></div>
             </div>
             <div class="panel">
               <h3>2. 统计口径</h3>
-              <label class="check"><input type="checkbox" id="exportDedup" checked />使用去重版（推荐）</label>
+              <label class="check"><input type="checkbox" id="exportDedup" checked />仅导出“计入统计”的记录（推荐）</label>
               <label class="check"><input type="checkbox" id="exportRawFields" checked />包含全部原始字段</label>
               <label class="check"><input type="checkbox" id="exportSummary" checked />附带汇总信息</label>
-              <p class="hint">如果关闭“去重版”，微信/支付宝绑卡支付可能与银行卡流水重复出现。</p>
+              <p class="hint">关闭第一项时，会把已排除的确认重复 / 疑似重复记录也导出，便于审计。</p>
             </div>
             <div class="panel">
               <h3>3. 文件格式</h3>
@@ -131,9 +197,9 @@
         <section class="view" id="view-settings">
           <div class="section-head"><div><h2>数据与设置</h2><p>可备份整个本地账单库，也可以清空后重新导入。</p></div></div>
           <div class="settings-grid">
-            <article class="panel"><h3>数据库备份</h3><p>导出包含所有流水、人工分类、重复关系和导入批次的 JSON 备份。</p><button class="btn primary" id="backupBtn2">导出完整备份</button></article>
+            <article class="panel"><h3>数据库备份</h3><p>导出包含所有流水、自动/人工分类、重复关系、计入口径和导入批次的 JSON 备份。</p><button class="btn primary" id="backupBtn2">导出完整备份</button></article>
             <article class="panel"><h3>恢复备份</h3><p>恢复 Bills Organization 自己导出的 JSON 数据库备份。</p><button class="btn ghost" id="restoreBtn">选择备份文件</button></article>
-            <article class="panel danger-panel"><h3>迁移旧报告 / 重置数据</h3><p>为了保护隐私，真实账单不会写入公开仓库。你可以把旧版分析 HTML 直接导入并迁移到本机数据库；也可以清空 IndexedDB 后重新开始。</p><button class="btn primary" id="migrateBtn">导入旧版 HTML</button> <button class="btn danger" id="resetBtn">清空数据库</button></article>
+            <article class="panel danger-panel"><h3>迁移旧报告 / 重置数据</h3><p>真实账单不会写入公开仓库。你可以把旧版分析 HTML 直接导入并迁移到本机数据库；也可以清空 IndexedDB 后重新开始。</p><button class="btn primary" id="migrateBtn">导入旧版 HTML</button> <button class="btn danger" id="resetBtn">清空数据库</button></article>
           </div>
         </section>
       </div>
@@ -163,6 +229,7 @@
   <script src="./importers.js"></script>
   <script src="./migration.js"></script>
   <script src="./exports.js"></script>
+  <script src="./enhancements.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
