@@ -23,6 +23,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Validate JavaScript syntax
+        run: |
+          node --check core.js
+          node --check importers.js
+          node --check migration.js
+          node --check exports.js
+          node --check enhancements.js
+          node --check category-engine.js
+          node --check app.js
+          node --check app-shell.js
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload static site
