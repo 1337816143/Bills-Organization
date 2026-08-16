@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const VERSION='v1.0.2';
+const VERSION='v1.0.3';
 window.BO_VERSION=VERSION;
 document.documentElement.dataset.appVersion=VERSION;
 document.title=`Bills Organization ${VERSION} · 账单整理`;
@@ -18,10 +18,10 @@ const ensureSwipeRuntime=()=>{
   ensure('swipeSort','select',el=>{el.innerHTML='<option value="asc">时间从早到晚</option><option value="desc">时间从晚到早</option>'});
 };
 ensureSwipeRuntime();
-if(typeof B.renderSwipeReview==='function'&&!B.renderSwipeReview.__compat102){
+if(typeof B.renderSwipeReview==='function'&&!B.renderSwipeReview.__compat103){
   const base=B.renderSwipeReview;
   const wrapped=function(...args){ensureSwipeRuntime();return base.apply(this,args)};
-  wrapped.__compat102=true;
+  wrapped.__compat103=true;
   B.renderSwipeReview=wrapped;
 }
 const versionBadge=()=>{
