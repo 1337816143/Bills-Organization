@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const BUILD='v1.0.0';
+const BUILD='v1.0.1';
 const addStyle=src=>{const s=document.createElement('link');s.rel='stylesheet';s.href=src;document.head.appendChild(s)};
 addStyle(`./mobile-review.css?app=${BUILD}`);
 addStyle(`./immersive-review.css?app=${BUILD}`);
