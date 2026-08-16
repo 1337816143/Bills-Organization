@@ -1,6 +1,8 @@
 (()=>{'use strict';
 const VERSION='v1.0.0';
 window.BO_VERSION=VERSION;
+document.documentElement.dataset.appVersion=VERSION;
+document.title=`Bills Organization ${VERSION} · 账单整理`;
 const B=window.BO;
 const ensure=(id,tag='div')=>{let el=document.getElementById(id);if(!el){el=document.createElement(tag);el.id=id;el.hidden=true;el.setAttribute('aria-hidden','true');(document.getElementById('view-swipeReview')||document.body).appendChild(el)}return el};
 // Compatibility sinks required by the legacy swipe renderer. The immersive layer may hide them, but must not remove them.
