@@ -1,0 +1,31 @@
+(()=>{'use strict';const B=window.BO;if(!B)return;
+const DIRS=[['up_left','↖','左上'],['up','↑','上'],['up_right','↗','右上'],['left','←','左'],['right','→','右'],['down_left','↙','左下'],['down','↓','下'],['down_right','↘','右下']];
+const baseEnsure=B.ensureMobileUX,baseRender=B.renderSwipeReview;
+const kindOf=x=>x.direction==='收入'?'income':(x.direction==='支出'||B.state.refundOffsetIds?.has(x.id)||B.isRefund?.(x))?'expense':'other';
+const amountFor=(rows,kind)=>kind==='income'?rows.reduce((s,x)=>s+B.income(x),0):rows.reduce((s,x)=>s+B.expense(x),0);
+const categoryLabel=id=>{const c=B.categoryById?.get(id);return c?`${c.major} › ${c.name}`:'未设置'};
+
+const updateDirectionOverlay=()=>{const layer=B.$('swipeDirectionOverlay');if(!layer)return;const kind=B.swipeState?.kind||'expense',map=B.getSwipeMappings?.(kind)||{};layer.innerHTML=DIRS.map(([dir,icon,label])=>`<button class="immersive-dir dir-${dir}" data-swipe-dir="${dir}"><i>${icon}</i><span>${B.esc(label)}</span><b>${B.esc(categoryLabel(map[dir]))}</b></button>`).join('')};
+const updateCornerStats=()=>{const box=B.$('swipeCornerStats');if(!box||!B.swipeState)return;B.refreshInclusion?.();const kind=B.swipeState.kind||'expense';let rows=B.state.records.filter(x=>kindOf(x)===kind);const included=rows.filter(x=>B.isIncluded?.(x)!==false),working=B.swipeState.includedOnly?included:rows,done=working.filter(x=>x.swipeReviewedAt).length,pending=working.length-done,manual=working.filter(x=>x.categoryOverride&&x.categoryOverride!=='auto').length,excluded=rows.length-included.length,total=amountFor(working,kind);box.innerHTML=`<div class="corner-stat tl"><b>${done}/${working.length}</b><span>已处理</span></div><div class="corner-stat tr"><b>${pending}</b><span>待处理</span></div><div class="corner-stat bl"><b>${B.money(total)}</b><span>${kind==='income'?'当前收入总计':'当前支出总计'}</span></div><div class="corner-stat br"><b>${manual}</b><span>人工修正 · 排除 ${excluded}</span></div>`;const entry=B.$('openSwipeSessionCount');if(entry)entry.textContent=pending?`待处理 ${pending}`:'已处理完成'};
+const decorateCard=()=>{const card=B.$('activeSwipeCard');if(!card)return;const manual=card.querySelector('.swipe-manual-box');if(manual&&!manual.querySelector('.swipe-open-detail')){const btn=document.createElement('button');btn.type='button';btn.className='swipe-open-detail';btn.textContent='查看全部明细';manual.appendChild(btn)}const detail=card.querySelector('.swipe-detail-scroll');if(detail)detail.setAttribute('aria-hidden','true')};
+const showFullDetail=()=>{const card=B.$('activeSwipeCard'),src=card?.querySelector('.swipe-detail-scroll'),dlg=B.$('swipeFullDetailDialog'),body=B.$('swipeFullDetailBody');if(!src||!dlg||!body)return;body.innerHTML=src.innerHTML;dlg.showModal()};
+const closeSession=()=>{const sec=B.$('view-swipeReview');if(!sec)return;sec.classList.remove('open');document.body.classList.remove('swipe-session-open');document.documentElement.classList.remove('swipe-session-open');};
+const openSession=()=>{const sec=B.$('view-swipeReview');if(!sec)return;document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));B.$('view-ledger')?.classList.add('active');sec.classList.add('open');document.body.classList.add('swipe-session-open');document.documentElement.classList.add('swipe-session-open');B.renderSwipeReview?.();};
+
+const upgrade=()=>{const sec=B.$('view-swipeReview');if(!sec||sec.dataset.immersive==='1')return;sec.dataset.immersive='1';
+  document.querySelector('.sidebar .swipe-nav')?.remove();document.querySelector('.mobile-bottom-nav [data-mobile-view="swipeReview"]')?.remove();
+  const ledgerHead=B.$('view-ledger')?.querySelector('.section-head');if(ledgerHead&&!B.$('openSwipeSession')){const wrap=document.createElement('div');wrap.className='swipe-entry-wrap';wrap.innerHTML='<button type="button" class="btn primary swipe-entry-btn" id="openSwipeSession"><span class="entry-icon">↗</span><span><b>进入滑动归类</b><small id="openSwipeSessionCount">逐笔处理</small></span></button>';ledgerHead.appendChild(wrap)}
+  sec.classList.remove('view','active','swipe-review-view');sec.classList.add('swipe-immersive');document.body.appendChild(sec);
+  const head=sec.querySelector('.swipe-page-head');if(head&&!B.$('closeSwipeSession')){const close=document.createElement('button');close.id='closeSwipeSession';close.className='swipe-session-close';close.type='button';close.innerHTML='<span>←</span><b>返回账单明细</b>';head.prepend(close)}
+  const compass=B.$('swipeCompass'),stage=B.$('swipeStage');if(compass&&stage&&!B.$('swipeImmersiveBoard')){const board=document.createElement('div');board.id='swipeImmersiveBoard';board.className='swipe-immersive-board';compass.parentNode.insertBefore(board,compass);board.append(compass,stage);const dirs=document.createElement('div');dirs.id='swipeDirectionOverlay';dirs.className='swipe-direction-overlay';board.appendChild(dirs);const stats=document.createElement('div');stats.id='swipeCornerStats';stats.className='swipe-corner-stats';board.appendChild(stats)}
+  if(!B.$('swipeFullDetailDialog'))document.body.insertAdjacentHTML('beforeend','<dialog id="swipeFullDetailDialog" class="mobile-sheet swipe-detail-dialog"><div class="sheet-head"><div><b>本条流水 · 全部明细</b><span>标准化字段、分类状态与全部原始字段均保留</span></div><button class="icon-btn" id="closeSwipeFullDetail">×</button></div><div id="swipeFullDetailBody" class="sheet-body swipe-full-detail-body"></div></dialog>');
+  B.$('openSwipeSession')?.addEventListener('click',openSession);B.$('closeSwipeSession')?.addEventListener('click',closeSession);B.$('closeSwipeFullDetail')?.addEventListener('click',()=>B.$('swipeFullDetailDialog')?.close());
+  document.addEventListener('click',e=>{if(e.target.closest('.swipe-open-detail'))showFullDetail()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&B.$('view-swipeReview')?.classList.contains('open')&&!B.$('swipeFullDetailDialog')?.open&&!B.$('categoryManagerDialog')?.open&&!B.$('swipeMappingDialog')?.open)closeSession()});
+  updateDirectionOverlay();updateCornerStats();decorateCard();
+};
+
+B.ensureMobileUX=()=>{baseEnsure?.();upgrade()};
+B.renderSwipeReview=()=>{baseRender?.();updateDirectionOverlay();updateCornerStats();decorateCard()};
+upgrade();
+})();
