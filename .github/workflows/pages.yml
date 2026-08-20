@@ -31,6 +31,13 @@ jobs:
           node --check exports.js
           node --check enhancements.js
           node --check category-engine.js
+          node --check project-intelligence.js
+          node --check mobile-review.js
+          node --check immersive-review.js
+          node --check compat-fix.js
+          node --check swipe-card-complete.js
+          node --check swipe-v103.js
+          node --check replace-import.js
           node --check app.js
           node --check app-shell.js
       - name: Configure Pages
