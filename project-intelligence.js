@@ -4,7 +4,7 @@ const baseAutoCategory=B.autoCategory;
 const baseRenderAll=B.renderAll;
 
 const splitWords=v=>String(v||'').split(/[，,、;；\n]+/).map(x=>B.norm(x)).filter(Boolean);
-const textOf=x=>B.norm([x.category,x.counterparty,x.description,x.paymentMethod,x.status,x.economicClass,JSON.stringify(x.raw||{})].join(' '));
+const textOf=x=>B.norm([x.category,x.counterparty,x.description,x.paymentMethod,x.status,x.economicClass,JSON.stringify(x.raw||{})].join(' ')).toLowerCase();
 const genericPayee=/^(支付宝|微信支付|财付通|网银在线|美团支付|美团平台商户|上海拉扎斯信息科技有限公司|北京三快在线科技有限公司|京东支付|银联|其他)$/i;
 const merchantKey=x=>{
   let s=B.norm(x.counterparty||'');
@@ -23,8 +23,8 @@ const TRIP_WEAR=/服装|服饰|衣服|上衣|T恤|衬衫|裙|裤|鞋|袜|帽|泳
 const GIFT_INTENT=/七夕|生日|纪念日|情人节|礼物|礼品|赠礼|送给|赠送|情侣礼物|求婚|鲜花|花束|花篮|新娘花|红包|礼金/;
 const GOLD_GIFT=/黄金|足金|金饰|金项链|金戒指|金手链|金吊坠|对戒|老庙|老凤祥|周大福|周生生|六福|中国黄金/;
 const FINANCIAL=/还款|信贷|贷款|借款|花呗|信用卡|理财|基金|证券|股票|ETF|余额宝|零钱通|小荷包|转入|转出|提现|充值到余额|内部资金|资产调拨/;
-const RECURRING_NON_TRAVEL=/话费|手机充值|宽带|电费|水费|燃气|房租|物业|会员|订阅|网盘|云服务|学费|课程|培训|考试|宠物|医院|药店|保险/;
-const HARD_NONTRAVEL_MAJORS=new Set(['finance','housing','communication','education','pet','vehicle','digital_service']);
+const RECURRING_NON_TRAVEL=/话费|手机充值|宽带|电费|水费|燃气|房租|物业|会员|订阅|网盘|云服务|学费|课程|培训|考试|宠物|保险/;
+const HARD_NONTRAVEL_MAJORS=new Set(['finance','housing','communication','education','pet','vehicle','digital_service','social']);
 const DURING_POSITIVE_MAJORS=new Set(['food','transport','travel','shopping','personal']);
 const PREP_POSITIVE_IDS=new Set(['travel_gear','clothing','beauty','daily_goods','jewelry','grocery','personal_other','hair_beauty']);
 
@@ -110,7 +110,7 @@ const scoreTravel=(x,skipRefund=false)=>{
   if(GOLD_GIFT.test(t)){add(-7,'黄金/足金珠宝通常属于礼物或资产消费，不默认计入旅行');conflict=true}
 
   if(ph==='during'&&cfg.broadDuring){
-    if(DURING_POSITIVE_MAJORS.has(cat.majorId))add(cat.majorId==='shopping'?4:3,`旅行期间的${cat.major}消费默认视为旅行相关`);
+    if(DURING_POSITIVE_MAJORS.has(cat.majorId))add(cat.majorId==='shopping'?4:3,`旅行期间的“${cat.major}”默认视为旅行相关`);
     if(TRIP_CONSUMPTION.test(t))add(3,'命中旅行期间常见即时消费场景');
     if(TRAVEL_GEAR.test(t))add(5,'命中一次性/隔脏/洗漱/收纳等旅行用品');
     if(TRIP_WEAR.test(t))add(4,'旅行期间购买服饰、配饰或个人用品');
@@ -122,7 +122,7 @@ const scoreTravel=(x,skipRefund=false)=>{
   }
 
   if(HARD_NONTRAVEL_MAJORS.has(cat.majorId)){add(-5,`${cat.major}通常与旅行项目无关`);conflict=true}
-  if(RECURRING_NON_TRAVEL.test(t)){add(-5,'命中固定账单/订阅/教育/宠物/医疗等常规非旅行信号');conflict=true}
+  if(RECURRING_NON_TRAVEL.test(t)){add(-5,'命中固定账单/订阅/教育/宠物等常规非旅行信号');conflict=true}
   const k=merchantKey(x),outside=k?(c.outside.get(k)||0):0;
   if(outside>=3&&HARD_NONTRAVEL_MAJORS.has(cat.majorId))add(-3,`同一商户在旅行外已出现 ${outside} 次，呈现常规消费模式`);
 
@@ -138,6 +138,8 @@ const scoreTravel=(x,skipRefund=false)=>{
 };
 B.classifyProject=(x,profile)=>{if(profile?.type&&profile.type!=='travel')return{code:'other',confidence:'低',score:0,reason:'当前版本已建立项目归属框架，非旅行项目需配置专属规则'};return scoreTravel(x)};
 B.autoTravel=x=>scoreTravel(x);
+
+const oldFlat=B.flat;if(typeof oldFlat==='function')B.flat=(x,raw)=>{const o=oldFlat(x,raw),p=B.autoTravel(x);return{...o,自动项目归属评分:p.score??'',自动项目归属证据:Array.isArray(p.signals)?p.signals.join(' | '):'',自动项目归属版本:'Project Intelligence v2'}};
 
 const ensureUI=()=>{
   const settings=B.$('view-settings');if(!settings||B.$('projectIntelCard'))return;
